@@ -49,6 +49,6 @@ async fn main() {
 
             println!("Mods Updated");
         }
-        _ => (),
+        _ => eprintln!("Unknown command"),
     }
 }
