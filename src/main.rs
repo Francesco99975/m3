@@ -1,54 +1,93 @@
-use std::env;
-
+use clap::{command, Parser, Subcommand};
 use install::install;
+use models::{ModLoader, VersionChannel};
 use search::search;
 use update::update_mods;
 
 mod client;
 mod constants;
 mod install;
+mod models;
 mod project_json;
 mod search;
 mod search_json;
 mod update;
 mod version_json;
 
+#[derive(Subcommand, Debug)]
+enum Commands {
+    #[command(about = "Search for a mod on Modrinth")]
+    Search { _mod: Option<String> },
+    #[command(about = "Install Mods")]
+    Install {
+        #[arg(short = 'd', long = "directory", default_value = "mods")]
+        directory: Option<String>,
+        mods: Option<Vec<String>>,
+    },
+    #[command(about = "Update Mods")]
+    Update {
+        #[arg(short = 'd', long = "directory", default_value = "mods")]
+        directory: Option<String>,
+    },
+}
+
+#[derive(Parser, Debug)]
+#[command(author = "Francesco", version = "1.0", about = "Minecraft Mods Package Manager for Modrinth", long_about = None)]
+#[command(propagate_version = true)]
+struct M3 {
+    #[arg(short = 'm', long = "mc-version", default_value = "1.20.1")]
+    minecraft_version: String,
+
+    #[arg(short = 'l', long = "loader", default_value = "fabric")]
+    loader: ModLoader,
+
+    #[arg(short = 'c', long = "channel", default_value = "release")]
+    channel: VersionChannel,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
 #[tokio::main]
 async fn main() {
-    // Getting user input
-    let args: Vec<String> = env::args().skip(1).collect();
+    let args = M3::parse();
 
-    if args.len() < 2 {
-        println!("Not enough arguments... Quitting");
-    }
-
-    let action = args[0].as_str();
-
-    match action {
-        "search" => {
-            let query = &args[1];
-            let results = search(query).await.expect("Could not search on Modrinth");
-
-            println!("Mods Found:");
-            println!("{:?}", results);
+    match &args.command {
+        Some(Commands::Search { _mod }) => {
+            match search((_mod.as_ref()).expect("Could not Search for it").as_str()).await {
+                Ok(result) => println!("{:?}", result),
+                Err(_) => eprintln!("Search Error!"),
+            }
         }
-        "install" => {
-            let dir = &args[1];
-            let mods_to_install: Vec<&String> = args.iter().skip(2).collect();
+        Some(Commands::Install { directory, mods }) => {
+            let dir = (directory.as_ref())
+                .expect("Directory error on install")
+                .as_str();
+            let _mods = (mods.as_ref()).expect("List Error");
 
-            install(dir, mods_to_install)
-                .await
-                .expect("Could not install mods");
-
-            println!("Mods installed!")
+            match install(
+                dir,
+                _mods,
+                args.loader,
+                args.channel,
+                args.minecraft_version,
+            )
+            .await
+            {
+                Ok(_) => println!("Mods Successfully Installed"),
+                Err(err) => eprintln!("{:?}", err),
+            }
         }
-        "update" => {
-            let dir = &args[1];
+        Some(Commands::Update { directory }) => {
+            let dir = (directory.as_ref())
+                .expect("Directory error on install")
+                .as_str();
 
-            update_mods(dir).await.expect("could not Update Mods");
-
-            println!("Mods Updated");
+            match update_mods(dir).await {
+                Ok(_) => println!("Mods Successfully Updated"),
+                Err(_) => eprintln!("Could not update mods"),
+            }
         }
-        _ => eprintln!("Unknown command"),
+        None => eprintln!("No Action Specified"),
     }
 }

@@ -17,7 +17,7 @@ pub struct Hit {
     pub slug: String,
     pub title: String,
     pub description: String,
-    pub categories: Vec<String>,
+    pub categories: Option<Vec<String>>,
     #[serde(rename = "client_side")]
     pub client_side: String,
     #[serde(rename = "server_side")]
@@ -26,8 +26,8 @@ pub struct Hit {
     pub project_type: String,
     pub downloads: i64,
     #[serde(rename = "icon_url")]
-    pub icon_url: String,
-    pub color: i64,
+    pub icon_url: Vec<String>,
+    pub color: Vec<i64>,
     #[serde(rename = "thread_id")]
     pub thread_id: Option<String>,
     #[serde(rename = "monetization_status")]
@@ -36,7 +36,7 @@ pub struct Hit {
     pub project_id: String,
     pub author: String,
     #[serde(rename = "display_categories")]
-    pub display_categories: Vec<String>,
+    pub display_categories: Option<Vec<String>>,
     pub versions: Vec<String>,
     pub follows: i64,
     #[serde(rename = "date_created")]
@@ -44,7 +44,7 @@ pub struct Hit {
     #[serde(rename = "date_modified")]
     pub date_modified: String,
     #[serde(rename = "latest_version")]
-    pub latest_version: String,
+    pub latest_version: Option<String>,
     pub license: String,
     pub gallery: Vec<String>,
     #[serde(rename = "featured_gallery")]

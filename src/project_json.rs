@@ -19,9 +19,9 @@ pub struct Project {
     #[serde(rename = "additional_categories")]
     pub additional_categories: Option<Vec<String>>,
     #[serde(rename = "issues_url")]
-    pub issues_url: String,
+    pub issues_url: Option<String>,
     #[serde(rename = "source_url")]
-    pub source_url: String,
+    pub source_url: Option<String>,
     #[serde(rename = "wiki_url")]
     pub wiki_url: Option<String>,
     #[serde(rename = "discord_url")]
@@ -32,8 +32,8 @@ pub struct Project {
     pub project_type: String,
     pub downloads: i64,
     #[serde(rename = "icon_url")]
-    pub icon_url: String,
-    pub color: i64,
+    pub icon_url: Option<String>,
+    pub color: Option<i64>,
     #[serde(rename = "thread_id")]
     pub thread_id: Option<String>,
     #[serde(rename = "monetization_status")]
@@ -46,10 +46,10 @@ pub struct Project {
     pub moderator_message: Option<String>,
     pub published: String,
     pub updated: String,
-    pub approved: String,
+    pub approved: Option<String>,
     pub queued: Option<String>,
     pub followers: i64,
-    pub license: License,
+    pub license: Option<License>,
     pub versions: Vec<String>,
     #[serde(rename = "game_versions")]
     pub game_versions: Vec<String>,

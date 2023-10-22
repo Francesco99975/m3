@@ -8,15 +8,15 @@ pub struct ProjectVersion {
     pub name: String,
     #[serde(rename = "version_number")]
     pub version_number: String,
-    pub changelog: String,
-    pub dependencies: Vec<Dependency>,
+    pub changelog: Option<String>,
+    pub dependencies: Option<Vec<Dependency>>,
     #[serde(rename = "game_versions")]
     pub game_versions: Vec<String>,
     #[serde(rename = "version_type")]
     pub version_type: String,
     pub loaders: Vec<String>,
     pub featured: bool,
-    pub status: String,
+    pub status: Option<String>,
     #[serde(rename = "requested_status")]
     pub requested_status: Option<String>,
     pub id: String,
@@ -36,7 +36,7 @@ pub struct ProjectVersion {
 #[serde(rename_all = "camelCase")]
 pub struct Dependency {
     #[serde(rename = "version_id")]
-    pub version_id: String,
+    pub version_id: Option<String>,
     #[serde(rename = "project_id")]
     pub project_id: String,
     #[serde(rename = "file_name")]
