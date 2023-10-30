@@ -1,7 +1,8 @@
 use reqwest::Response;
 
 use crate::{
-    client::get_client, constants::API_URL, project_json::Project, version_json::ProjectVersion,
+    cli_error::CliError, client::get_client, constants::API_URL, project_json::Project,
+    version_json::ProjectVersion,
 };
 
 pub async fn mod_exists(identifier: &str) -> Result<Response, reqwest::Error> {
@@ -34,7 +35,7 @@ pub async fn find_version(
             .json()
             .await?;
 
-        let version = &versions
+        match &versions
             .iter()
             .find(|version| {
                 version.version_type == *download_channel
@@ -42,10 +43,11 @@ pub async fn find_version(
                     && version.game_versions.contains(mc_version)
             })
             .cloned()
-            .expect("Version not found");
-
-        Ok(Some(version.clone()))
+        {
+            Some(version) => Ok(Some(version.clone())),
+            None => Err(Box::new(CliError("Version not found".into()))),
+        }
     } else {
-        Ok(None)
+        Err(Box::new(CliError("Version not found".into())))
     }
 }

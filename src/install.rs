@@ -4,6 +4,7 @@ use async_recursion::async_recursion;
 use reqwest::StatusCode;
 
 use crate::{
+    api::{find_version, mod_exists},
     client::get_client,
     config::{load_config, ModConfig},
     constants::API_URL,
@@ -24,11 +25,11 @@ pub async fn install(
         Ok(config) => config,
         Err(_) => {
             match fs::write(config_path.as_str(), "") {
-                Ok(_) => Some(()),
+                Ok(_) => println!("Created config file"),
                 Err(_) => {
                     fs::create_dir(directory).expect("Could not created mod directory");
                     fs::write(config_path.as_str(), "").expect("Could not create config file");
-                    None
+                    println!("Created mod directory and config file")
                 }
             };
             Vec::new()
@@ -41,100 +42,73 @@ pub async fn install(
     };
 
     let download_channel = match channel {
-        VersionChannel::Release => "release",
-        VersionChannel::Beta => "beta",
-        VersionChannel::Alpha => "alpha",
+        VersionChannel::Release => String::from("release"),
+        VersionChannel::Beta => String::from("beta"),
+        VersionChannel::Alpha => String::from("alpha"),
     };
     for _mod in mod_list {
-        match get_client()
-            .expect("Coult not fetch client")
-            .get(API_URL.to_string() + "project/" + _mod + "/check")
-            .send()
-            .await
-        {
+        match mod_exists(_mod).await {
             Ok(res) => {
                 if res.status() == StatusCode::OK {
-                    let res = get_client()
-                        .expect("Coult not fetch client")
-                        .get(API_URL.to_string() + "project/" + _mod)
-                        .send()
-                        .await?;
-                    let project: Project = res.json().await?;
+                    match find_version(_mod, &mc_loader, &download_channel, &mc_version).await {
+                        Ok(res) => match res {
+                            Some(version) => {
+                                let file = &version.files[0];
+                                let data = reqwest::get(&file.url).await?.bytes().await?;
 
-                    if project.loaders.contains(&mc_loader)
-                        && project.game_versions.contains(&mc_version)
-                    {
-                        let versions: Vec<ProjectVersion> = get_client()
-                            .expect("Coult not fetch client")
-                            .get(API_URL.to_string() + "project/" + _mod + "/version")
-                            .send()
-                            .await?
-                            .json()
-                            .await?;
+                                fs::create_dir_all(Path::new(&(directory.to_owned())))
+                                    .expect("Could not create new mods dir");
+                                let filepath = &(directory.to_owned() + "/" + &file.filename);
+                                fs::write(Path::new(filepath), data).expect("Could not write file");
 
-                        let version = &versions
-                            .iter()
-                            .find(|version| {
-                                version.version_type == download_channel
-                                    && version.loaders.contains(&mc_loader)
-                                    && version.game_versions.contains(&mc_version)
-                            })
-                            .cloned()
-                            .expect("Version not found");
+                                let minecraft_mod = ModConfig {
+                                    id: version.id.clone(),
+                                    project_name: _mod.to_string(),
+                                    project_id: version.project_id.clone(),
+                                    version_number: version.version_number.clone(),
+                                    name: version.name.clone(),
+                                    channel: version.version_type.clone(),
+                                    loader: mc_loader.clone(),
+                                    mc_version: mc_version.clone(),
+                                    date_published: version.date_published.clone(),
+                                    filepath: filepath.to_string(),
+                                };
 
-                        let file = &version.files[0];
-                        let data = reqwest::get(&file.url).await?.bytes().await?;
+                                config.push(minecraft_mod);
 
-                        fs::create_dir_all(Path::new(&(directory.to_owned())))
-                            .expect("Could not create new mods dir");
-                        let filepath = &(directory.to_owned() + "/" + &file.filename);
-                        fs::write(Path::new(filepath), data).expect("Could not write file");
+                                match &version.dependencies {
+                                    Some(deps) => {
+                                        if !deps.is_empty() {
+                                            println!("Downloading dependencies for {:?}", &_mod);
 
-                        let minecraft_mod = ModConfig {
-                            id: version.id.clone(),
-                            project_name: project.slug,
-                            project_id: version.project_id.clone(),
-                            version_number: version.version_number.clone(),
-                            name: version.name.clone(),
-                            channel: version.version_type.clone(),
-                            loader: mc_loader.clone(),
-                            mc_version: mc_version.clone(),
-                            date_published: version.date_published.clone(),
-                            filepath: filepath.to_string(),
-                        };
+                                            let deps_prj_ids = deps
+                                                .iter()
+                                                .filter(|dep| dep.dependency_type == "required")
+                                                .map(|dep| dep.project_id.as_str())
+                                                .collect();
 
-                        config.push(minecraft_mod);
-
-                        match &version.dependencies {
-                            Some(deps) => {
-                                if !deps.is_empty() {
-                                    println!("Downloading dependencies for {:?}", &_mod);
-
-                                    let deps_prj_ids = deps
-                                        .iter()
-                                        .filter(|dep| dep.dependency_type == "required")
-                                        .map(|dep| dep.project_id.as_str())
-                                        .collect();
-
-                                    download_dependencies(
-                                        &mut config,
-                                        deps_prj_ids,
-                                        directory,
-                                        &mc_loader,
-                                        &mc_version,
-                                    )
-                                    .await?;
+                                            download_dependencies(
+                                                &mut config,
+                                                deps_prj_ids,
+                                                directory,
+                                                &mc_loader,
+                                                &mc_version,
+                                            )
+                                            .await?;
+                                        }
+                                    }
+                                    None => {
+                                        println!("No dependencies for {}", &_mod);
+                                    }
                                 }
                             }
-                            None => {
-                                println!("No dependencies for {}", &_mod);
-                            }
-                        }
-                    } else {
-                        println!("This {} did not match the reqested parameters", &_mod)
+                            None => println!("Version not found"),
+                        },
+                        Err(_) => eprintln!("Version not found"),
                     }
                 }
             }
+
             Err(_) => eprintln!("Could not find mod: {}", &_mod),
         };
     }

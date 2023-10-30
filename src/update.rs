@@ -7,18 +7,15 @@ use crate::{
     config::{load_config, ModConfig},
 };
 
-pub async fn update_mods(directory: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn update_mods(directory: &str) -> Result<String, Box<dyn std::error::Error>> {
     let config_path = &(directory.to_owned() + "/.m3.json");
     let mut config = match load_config(config_path.as_str()) {
         Ok(config) => config,
-        Err(_) => {
-            println!("Nothing to update...");
-            Vec::new()
-        }
+        Err(_) => Vec::new(),
     };
 
     if config.is_empty() {
-        return Ok(());
+        return Ok(String::from("Nothing to update..."));
     }
 
     for mut _mod in config.iter_mut() {
@@ -57,7 +54,9 @@ pub async fn update_mods(directory: &str) -> Result<(), Box<dyn std::error::Erro
                                     _mod = &mut minecraft_mod;
                                 }
                             }
-                            None => println!("Compatible Version not found"),
+                            None => {
+                                println!("Compatible Version not found for {}", _mod.project_name)
+                            }
                         },
                         Err(_) => println!("Could not find mod: {}", _mod.project_name),
                     }
@@ -70,5 +69,5 @@ pub async fn update_mods(directory: &str) -> Result<(), Box<dyn std::error::Erro
     let json = serde_json::to_string_pretty(&config).expect("could not convert to JSON");
     fs::write(config_path, json.as_bytes()).expect("could write JSON");
 
-    Ok(())
+    Ok(String::from("Mods Successfully Updated!"))
 }

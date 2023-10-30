@@ -2,9 +2,11 @@ use clap::{command, Parser, Subcommand};
 use install::install;
 use models::{ModLoader, VersionChannel};
 use search::search;
+use uninstall::uninstall;
 use update::update_mods;
 
 mod api;
+mod cli_error;
 mod client;
 mod config;
 mod constants;
@@ -13,6 +15,7 @@ mod models;
 mod project_json;
 mod search;
 mod search_json;
+mod uninstall;
 mod update;
 mod version_json;
 
@@ -30,6 +33,12 @@ enum Commands {
     Update {
         #[arg(short = 'd', long = "directory", default_value = "mods")]
         directory: Option<String>,
+    },
+    #[command(about = "Uninstall Mods")]
+    Uninstall {
+        #[arg(short = 'd', long = "directory", default_value = "mods")]
+        directory: Option<String>,
+        mods: Option<Vec<String>>,
     },
 }
 
@@ -86,8 +95,19 @@ async fn main() {
                 .as_str();
 
             match update_mods(dir).await {
-                Ok(_) => println!("Mods Successfully Updated"),
-                Err(_) => eprintln!("Could not update mods"),
+                Ok(message) => println!("{}", message),
+                Err(err) => eprintln!("Could not update mods: {:?}", err),
+            }
+        }
+        Some(Commands::Uninstall { directory, mods }) => {
+            let dir = (directory.as_ref())
+                .expect("Directory error on uninstall")
+                .as_str();
+            let _mods = (mods.as_ref()).expect("List Error");
+
+            match uninstall(dir, _mods) {
+                Ok(message) => println!("{}", message),
+                Err(err) => eprintln!("{:?}", err),
             }
         }
         None => eprintln!("No Action Specified"),
