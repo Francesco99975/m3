@@ -128,21 +128,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
 
 [[package]]
-name = "c3"
-version = "0.1.0"
-dependencies = [
- "async-recursion",
- "clap",
- "colored",
- "indicatif",
- "reqwest",
- "serde",
- "serde_derive",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -575,6 +560,21 @@ name = "log"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
+
+[[package]]
+name = "m3"
+version = "0.1.0"
+dependencies = [
+ "async-recursion",
+ "clap",
+ "colored",
+ "indicatif",
+ "reqwest",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "memchr"
