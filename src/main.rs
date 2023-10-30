@@ -4,7 +4,9 @@ use models::{ModLoader, VersionChannel};
 use search::search;
 use update::update_mods;
 
+mod api;
 mod client;
+mod config;
 mod constants;
 mod install;
 mod models;
@@ -56,7 +58,7 @@ async fn main() {
         Some(Commands::Search { _mod }) => {
             match search((_mod.as_ref()).expect("Could not Search for it").as_str()).await {
                 Ok(result) => println!("{:?}", result),
-                Err(_) => eprintln!("Search Error!"),
+                Err(err) => eprintln!("Search Error: {:?}", err),
             }
         }
         Some(Commands::Install { directory, mods }) => {

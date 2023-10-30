@@ -26,8 +26,8 @@ pub struct Hit {
     pub project_type: String,
     pub downloads: i64,
     #[serde(rename = "icon_url")]
-    pub icon_url: Vec<String>,
-    pub color: Vec<i64>,
+    pub icon_url: Option<String>,
+    pub color: Option<i64>,
     #[serde(rename = "thread_id")]
     pub thread_id: Option<String>,
     #[serde(rename = "monetization_status")]

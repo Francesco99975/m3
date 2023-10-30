@@ -1,105 +1,74 @@
-use std::{fs, path::Path, time::Duration};
+use std::{fs, path::Path};
 
-use colored::Colorize;
-use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::StatusCode;
 
 use crate::{
-    client::get_client, constants::API_URL, project_json::Project, version_json::ProjectVersion,
+    api::{find_version, mod_exists},
+    config::{load_config, ModConfig},
 };
 
-fn get_mods_to_update(directory: &str) -> Vec<String> {
-    let pb = ProgressBar::new_spinner();
-    pb.enable_steady_tick(Duration::from_millis(120));
-    pb.set_style(
-        ProgressStyle::with_template("{spinner:.blue} {msg}")
-            .unwrap()
-            .tick_strings(&[
-                "▹▹▹▹▹",
-                "▸▹▹▹▹",
-                "▹▸▹▹▹",
-                "▹▹▸▹▹",
-                "▹▹▹▸▹",
-                "▹▹▹▹▸",
-                "▪▪▪▪▪",
-            ]),
-    );
-
-    pb.set_message(format!("{}", "Checking for updates...".blue().italic()));
-
-    let raw_paths = fs::read_dir(directory).expect("Could not open directory");
-
-    let mut mods_paths: Vec<String> = Vec::new();
-    for raw_path in raw_paths {
-        let path = raw_path.expect("Could not retrieve path").path();
-
-        if path.is_file() && path.ends_with("jar") {
-            mods_paths.push(path.to_str().expect("File parsing error").to_string())
+pub async fn update_mods(directory: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let config_path = &(directory.to_owned() + "/.m3.json");
+    let mut config = match load_config(config_path.as_str()) {
+        Ok(config) => config,
+        Err(_) => {
+            println!("Nothing to update...");
+            Vec::new()
         }
+    };
+
+    if config.is_empty() {
+        return Ok(());
     }
 
-    mods_paths
-}
-
-pub async fn update_mods(directory: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let mods_paths = get_mods_to_update(directory);
-    let mods: Vec<String> = mods_paths
-        .iter()
-        .map(|path| {
-            let index = path.find('-').expect("Invalid file");
-            path[0..index].to_string()
-        })
-        .collect();
-
-    for _mod in mods {
-        match get_client()
-            .expect("Coult not fetch client")
-            .get(API_URL.to_string() + "project/" + &_mod + "/check")
-            .send()
-            .await
-        {
+    for mut _mod in config.iter_mut() {
+        match mod_exists(_mod.id.as_str()).await {
             Ok(res) => {
                 if res.status() == StatusCode::OK {
-                    let res = get_client()
-                        .expect("Coult not fetch client")
-                        .get(API_URL.to_string() + "project/" + &_mod)
-                        .send()
-                        .await?;
-                    let project: Project = res.json().await?;
-                    if project.loaders.contains(&"fabric".to_string()) {
-                        let versions: Vec<ProjectVersion> = get_client()
-                            .expect("Coult not fetch client")
-                            .get(API_URL.to_string() + "project/" + &_mod + "version")
-                            .send()
-                            .await?
-                            .json()
-                            .await?;
-                        let version = &versions[0].files[0];
-                        let data = get_client()
-                            .expect("Coult not fetch client")
-                            .get(&version.url)
-                            .send()
-                            .await?
-                            .bytes()
-                            .await?;
+                    match find_version(
+                        _mod.id.as_str(),
+                        &_mod.loader,
+                        &_mod.channel,
+                        &_mod.mc_version,
+                    )
+                    .await
+                    {
+                        Ok(version) => match version {
+                            Some(version) => {
+                                if _mod.version_number != version.version_number {
+                                    let file = &version.files[0];
+                                    let data = reqwest::get(&file.url).await?.bytes().await?;
+                                    let filepath = &(directory.to_owned() + "/" + &file.filename);
+                                    fs::write(Path::new(filepath), data)
+                                        .expect("Could not write file");
 
-                        match fs::write(
-                            Path::new(&(directory.to_owned() + &version.filename)),
-                            data,
-                        ) {
-                            Ok(_) => {
-                                for old in &mods_paths {
-                                    fs::remove_file(old)?
+                                    let mut minecraft_mod = ModConfig {
+                                        id: version.id.clone(),
+                                        project_name: _mod.project_name.clone(),
+                                        project_id: version.project_id.clone(),
+                                        version_number: version.version_number.clone(),
+                                        name: version.name.clone(),
+                                        channel: version.version_type.clone(),
+                                        loader: _mod.loader.clone(),
+                                        mc_version: _mod.mc_version.clone(),
+                                        date_published: version.date_published.clone(),
+                                        filepath: filepath.to_string(),
+                                    };
+                                    _mod = &mut minecraft_mod;
                                 }
                             }
-                            Err(_) => eprintln!("Could not updated mods"),
-                        }
+                            None => println!("Compatible Version not found"),
+                        },
+                        Err(_) => println!("Could not find mod: {}", _mod.project_name),
                     }
                 }
             }
-            Err(_) => eprintln!("Could not find mod: {}", &_mod),
+            Err(_) => println!("Could not find mod: {}", _mod.project_name),
         };
     }
+
+    let json = serde_json::to_string_pretty(&config).expect("could not convert to JSON");
+    fs::write(config_path, json.as_bytes()).expect("could write JSON");
 
     Ok(())
 }

@@ -5,6 +5,7 @@ use reqwest::StatusCode;
 
 use crate::{
     client::get_client,
+    config::{load_config, ModConfig},
     constants::API_URL,
     models::{ModLoader, VersionChannel},
     project_json::Project,
@@ -18,6 +19,22 @@ pub async fn install(
     channel: VersionChannel,
     mc_version: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let config_path = &(directory.to_owned() + "/.m3.json");
+    let mut config = match load_config(config_path.as_str()) {
+        Ok(config) => config,
+        Err(_) => {
+            match fs::write(config_path.as_str(), "") {
+                Ok(_) => Some(()),
+                Err(_) => {
+                    fs::create_dir(directory).expect("Could not created mod directory");
+                    fs::write(config_path.as_str(), "").expect("Could not create config file");
+                    None
+                }
+            };
+            Vec::new()
+        }
+    };
+
     let mc_loader = match loader {
         ModLoader::Fabric => "fabric".to_string(),
         ModLoader::Forge => "forge".to_string(),
@@ -70,11 +87,23 @@ pub async fn install(
 
                         fs::create_dir_all(Path::new(&(directory.to_owned())))
                             .expect("Could not create new mods dir");
-                        fs::write(
-                            Path::new(&(directory.to_owned() + "/" + &file.filename)),
-                            data,
-                        )
-                        .expect("Could not write file");
+                        let filepath = &(directory.to_owned() + "/" + &file.filename);
+                        fs::write(Path::new(filepath), data).expect("Could not write file");
+
+                        let minecraft_mod = ModConfig {
+                            id: version.id.clone(),
+                            project_name: project.slug,
+                            project_id: version.project_id.clone(),
+                            version_number: version.version_number.clone(),
+                            name: version.name.clone(),
+                            channel: version.version_type.clone(),
+                            loader: mc_loader.clone(),
+                            mc_version: mc_version.clone(),
+                            date_published: version.date_published.clone(),
+                            filepath: filepath.to_string(),
+                        };
+
+                        config.push(minecraft_mod);
 
                         match &version.dependencies {
                             Some(deps) => {
@@ -88,15 +117,18 @@ pub async fn install(
                                         .collect();
 
                                     download_dependencies(
+                                        &mut config,
                                         deps_prj_ids,
                                         directory,
                                         &mc_loader,
                                         &mc_version,
                                     )
-                                    .await?
+                                    .await?;
                                 }
                             }
-                            None => println!("No dependencies for {}", &_mod),
+                            None => {
+                                println!("No dependencies for {}", &_mod);
+                            }
                         }
                     } else {
                         println!("This {} did not match the reqested parameters", &_mod)
@@ -107,11 +139,15 @@ pub async fn install(
         };
     }
 
+    let json = serde_json::to_string_pretty(&config).expect("could not convert to JSON");
+    fs::write(config_path, json.as_bytes()).expect("could write JSON");
+
     Ok(())
 }
 
 #[async_recursion]
 async fn download_dependencies(
+    config: &mut Vec<ModConfig>,
     deps_prj_ids: Vec<&'async_recursion str>,
     directory: &str,
     mc_loader: &String,
@@ -169,17 +205,29 @@ async fn download_dependencies(
 
             let dep_file = &dep_version.files[0];
             let dep_data = reqwest::get(&dep_file.url).await?.bytes().await?;
+            let filepath = &(directory.to_owned() + "/" + &dep_file.filename);
+            fs::write(Path::new(filepath), dep_data).expect("Could not write dependency file");
 
-            fs::write(
-                Path::new(&(directory.to_owned() + "/" + &dep_file.filename)),
-                dep_data,
-            )
-            .expect("Could not write dependency file");
+            let minecraft_mod = ModConfig {
+                id: dep_version.id.clone(),
+                project_name: dependency_project.slug,
+                project_id: dep_version.project_id.clone(),
+                version_number: dep_version.version_number.clone(),
+                name: dep_version.name.clone(),
+                channel: dep_version.version_type.clone(),
+                loader: mc_loader.clone(),
+                mc_version: mc_version.clone(),
+                date_published: dep_version.date_published.clone(),
+                filepath: filepath.to_string(),
+            };
+
+            config.push(minecraft_mod);
 
             match &dep_version.dependencies {
                 Some(deps) => {
                     if !deps.is_empty() {
                         download_dependencies(
+                            config,
                             deps.iter()
                                 .filter(|sub_dep| sub_dep.dependency_type == "required")
                                 .map(|sub_dep| sub_dep.project_id.as_str())
@@ -191,7 +239,9 @@ async fn download_dependencies(
                         .await?
                     }
                 }
-                None => todo!(),
+                None => {
+                    println!("No dependencies for {}", &dep_version.name);
+                }
             }
         }
     }
