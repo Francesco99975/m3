@@ -5,9 +5,12 @@ use reqwest::StatusCode;
 use crate::{
     api::{find_version, mod_exists},
     config::{load_config, ModConfig},
+    progress::CliLoading,
 };
 
 pub async fn update_mods(directory: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let loading = CliLoading::new();
+    loading.set("Loading Config");
     let config_path = &(directory.to_owned() + "/.m3.json");
     let mut config = match load_config(config_path.as_str()) {
         Ok(config) => config,
@@ -15,10 +18,15 @@ pub async fn update_mods(directory: &str) -> Result<String, Box<dyn std::error::
     };
 
     if config.is_empty() {
+        loading.end("No Config found...");
         return Ok(String::from("Nothing to update..."));
     }
 
+    loading.end("Config loaded!");
+
     for mut _mod in config.iter_mut() {
+        let update_loading = CliLoading::new();
+        update_loading.set(&format!("Updating {}", _mod.project_name));
         match mod_exists(_mod.id.as_str()).await {
             Ok(res) => {
                 if res.status() == StatusCode::OK {
@@ -52,17 +60,25 @@ pub async fn update_mods(directory: &str) -> Result<String, Box<dyn std::error::
                                         dependents: _mod.dependents.clone(),
                                     };
                                     _mod = &mut minecraft_mod;
+
+                                    update_loading.end(&format!("{} Updated!", _mod.project_name));
                                 }
                             }
                             None => {
-                                println!("Compatible Version not found for {}", _mod.project_name)
+                                update_loading.end(&format!(
+                                    "Compatible Version not found for {}",
+                                    _mod.project_name
+                                ));
                             }
                         },
-                        Err(_) => println!("Could not find mod: {}", _mod.project_name),
+                        Err(_) => update_loading
+                            .end(&format!("Could not find this Mod: {}", _mod.project_name)),
                     }
                 }
             }
-            Err(_) => println!("Could not find mod: {}", _mod.project_name),
+            Err(_) => {
+                update_loading.end(&format!("Could not find this Mod: {}", _mod.project_name))
+            }
         };
     }
 

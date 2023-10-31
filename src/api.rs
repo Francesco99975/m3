@@ -1,9 +1,203 @@
 use reqwest::Response;
+use serde_derive::Deserialize;
+use serde_derive::Serialize;
+use serde_json::Value;
 
-use crate::{
-    cli_error::CliError, client::get_client, constants::API_URL, project_json::Project,
-    version_json::ProjectVersion,
-};
+use crate::{cli_error::CliError, client::get_client};
+
+pub const API_URL: &str = "https://api.modrinth.com/v2/";
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Project {
+    pub slug: String,
+    pub title: String,
+    pub description: String,
+    pub categories: Vec<String>,
+    #[serde(rename = "client_side")]
+    pub client_side: String,
+    #[serde(rename = "server_side")]
+    pub server_side: String,
+    pub body: String,
+    pub status: String,
+    #[serde(rename = "requested_status")]
+    pub requested_status: Option<String>,
+    #[serde(rename = "additional_categories")]
+    pub additional_categories: Option<Vec<String>>,
+    #[serde(rename = "issues_url")]
+    pub issues_url: Option<String>,
+    #[serde(rename = "source_url")]
+    pub source_url: Option<String>,
+    #[serde(rename = "wiki_url")]
+    pub wiki_url: Option<String>,
+    #[serde(rename = "discord_url")]
+    pub discord_url: Option<String>,
+    #[serde(rename = "donation_urls")]
+    pub donation_urls: Option<Vec<DonationUrl>>,
+    #[serde(rename = "project_type")]
+    pub project_type: String,
+    pub downloads: i64,
+    #[serde(rename = "icon_url")]
+    pub icon_url: Option<String>,
+    pub color: Option<i64>,
+    #[serde(rename = "thread_id")]
+    pub thread_id: Option<String>,
+    #[serde(rename = "monetization_status")]
+    pub monetization_status: Option<String>,
+    pub id: String,
+    pub team: String,
+    #[serde(rename = "body_url")]
+    pub body_url: Option<String>,
+    #[serde(rename = "moderator_message")]
+    pub moderator_message: Option<String>,
+    pub published: String,
+    pub updated: String,
+    pub approved: Option<String>,
+    pub queued: Option<String>,
+    pub followers: i64,
+    pub license: Option<License>,
+    pub versions: Vec<String>,
+    #[serde(rename = "game_versions")]
+    pub game_versions: Vec<String>,
+    pub loaders: Vec<String>,
+    pub gallery: Option<Vec<Gallery>>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DonationUrl {}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct License {
+    pub id: String,
+    pub name: String,
+    pub url: Option<String>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Gallery {
+    pub url: String,
+    pub featured: bool,
+    pub title: String,
+    pub description: String,
+    pub created: String,
+    pub ordering: i64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Search {
+    pub hits: Vec<Hit>,
+    pub offset: i64,
+    pub limit: i64,
+    #[serde(rename = "total_hits")]
+    pub total_hits: i64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Hit {
+    pub slug: String,
+    pub title: String,
+    pub description: String,
+    pub categories: Option<Vec<String>>,
+    #[serde(rename = "client_side")]
+    pub client_side: String,
+    #[serde(rename = "server_side")]
+    pub server_side: String,
+    #[serde(rename = "project_type")]
+    pub project_type: String,
+    pub downloads: u32,
+    #[serde(rename = "icon_url")]
+    pub icon_url: Option<String>,
+    pub color: Option<i64>,
+    #[serde(rename = "thread_id")]
+    pub thread_id: Option<String>,
+    #[serde(rename = "monetization_status")]
+    pub monetization_status: Option<String>,
+    #[serde(rename = "project_id")]
+    pub project_id: String,
+    pub author: String,
+    #[serde(rename = "display_categories")]
+    pub display_categories: Option<Vec<String>>,
+    pub versions: Vec<String>,
+    pub follows: i64,
+    #[serde(rename = "date_created")]
+    pub date_created: String,
+    #[serde(rename = "date_modified")]
+    pub date_modified: String,
+    #[serde(rename = "latest_version")]
+    pub latest_version: Option<String>,
+    pub license: String,
+    pub gallery: Vec<String>,
+    #[serde(rename = "featured_gallery")]
+    pub featured_gallery: Option<String>,
+    pub dependencies: Option<Vec<String>>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectVersion {
+    pub name: String,
+    #[serde(rename = "version_number")]
+    pub version_number: String,
+    pub changelog: Option<String>,
+    pub dependencies: Option<Vec<Dependency>>,
+    #[serde(rename = "game_versions")]
+    pub game_versions: Vec<String>,
+    #[serde(rename = "version_type")]
+    pub version_type: String,
+    pub loaders: Vec<String>,
+    pub featured: bool,
+    pub status: Option<String>,
+    #[serde(rename = "requested_status")]
+    pub requested_status: Option<String>,
+    pub id: String,
+    #[serde(rename = "project_id")]
+    pub project_id: String,
+    #[serde(rename = "author_id")]
+    pub author_id: String,
+    #[serde(rename = "date_published")]
+    pub date_published: String,
+    pub downloads: i64,
+    #[serde(rename = "changelog_url")]
+    pub changelog_url: Value,
+    pub files: Vec<File>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Dependency {
+    #[serde(rename = "version_id")]
+    pub version_id: Option<String>,
+    #[serde(rename = "project_id")]
+    pub project_id: String,
+    #[serde(rename = "file_name")]
+    pub file_name: Option<String>,
+    #[serde(rename = "dependency_type")]
+    pub dependency_type: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct File {
+    pub hashes: Hashes,
+    pub url: String,
+    pub filename: String,
+    pub primary: bool,
+    pub size: i64,
+    #[serde(rename = "file_type")]
+    pub file_type: Option<String>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Hashes {
+    pub sha512: String,
+    pub sha1: String,
+}
 
 pub async fn mod_exists(identifier: &str) -> Result<Response, reqwest::Error> {
     get_client()?

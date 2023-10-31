@@ -10,15 +10,12 @@ mod api;
 mod cli_error;
 mod client;
 mod config;
-mod constants;
 mod install;
 mod models;
-mod project_json;
+mod progress;
 mod search;
-mod search_json;
 mod uninstall;
 mod update;
-mod version_json;
 
 #[derive(Subcommand, Debug)]
 enum Commands {
@@ -82,11 +79,12 @@ async fn main() {
                 .as_str();
             match mods {
                 Some(mods) => {
+                    println!("Installing...");
                     match install(dir, mods, args.loader, args.channel, args.minecraft_version)
                         .await
                     {
                         Ok(_) => println!("Mods Successfully Installed"),
-                        Err(err) => eprintln!("{:?}", err),
+                        Err(err) => eprintln!("Install Error: {:?}", err),
                     }
                 }
                 None => eprintln!(
@@ -98,7 +96,7 @@ async fn main() {
             let dir = (directory.as_ref())
                 .expect("Directory error on install! Could not use default value for some reason")
                 .as_str();
-
+            println!("Updating...");
             match update_mods(dir).await {
                 Ok(message) => println!("{}", message),
                 Err(err) => eprintln!("Could not update mods: {:?}", err),

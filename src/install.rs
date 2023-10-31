@@ -4,13 +4,11 @@ use async_recursion::async_recursion;
 use reqwest::StatusCode;
 
 use crate::{
-    api::{find_version, mod_exists},
+    api::{find_version, mod_exists, Project, ProjectVersion, API_URL},
     client::get_client,
     config::{load_config, ModConfig},
-    constants::API_URL,
     models::{ModLoader, VersionChannel},
-    project_json::Project,
-    version_json::ProjectVersion,
+    progress::CliLoading,
 };
 
 pub async fn install(
@@ -20,18 +18,20 @@ pub async fn install(
     channel: VersionChannel,
     mc_version: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let loading = CliLoading::new();
+    loading.set("Loading Config");
     let config_path = &(directory.to_owned() + "/.m3.json");
     let mut config = match load_config(config_path.as_str()) {
         Ok(config) => config,
         Err(_) => {
             match fs::write(config_path.as_str(), "") {
-                Ok(_) => println!("Created config file"),
+                Ok(_) => loading.end("Created config file"),
                 Err(_) => match fs::create_dir(directory) {
                     Ok(_) => match fs::write(config_path.as_str(), "") {
-                        Ok(_) => println!("Created mod directory and config file"),
-                        Err(_) => eprintln!("Could not create config file"),
+                        Ok(_) => loading.end("Created mod directory and config file"),
+                        Err(_) => loading.end("Could not create config file"),
                     },
-                    Err(_) => eprintln!("Could not created mod directory"),
+                    Err(_) => loading.end("Could not created mod directory"),
                 },
             };
             Vec::new()
@@ -48,10 +48,14 @@ pub async fn install(
         VersionChannel::Beta => String::from("beta"),
         VersionChannel::Alpha => String::from("alpha"),
     };
+
+    let install_loading = CliLoading::new();
+
     for _mod in mod_list {
         match mod_exists(_mod).await {
             Ok(res) => {
                 if res.status() == StatusCode::OK {
+                    install_loading.set(&format!("Installing {}", &_mod));
                     match find_version(_mod, &mc_loader, &download_channel, &mc_version).await {
                         Ok(res) => match res {
                             Some(version) => {
@@ -115,7 +119,12 @@ pub async fn install(
                                                                     }
                                                                 }
                                                             }
-                                                            None => eprint!("Mod Config not found"),
+                                                            None => {
+                                                                install_loading.set(&format!(
+                                                                    "{} not found in config",
+                                                                    &_mod
+                                                                ));
+                                                            }
                                                         }
                                                     }
 
@@ -124,12 +133,9 @@ pub async fn install(
                                                 .copied()
                                                 .collect();
 
-                                            if !filtered_prj_ids.is_empty() {
-                                                println!(
-                                                    "Downloading dependencies for {:?}",
-                                                    &_mod
-                                                );
+                                            install_loading.end(&format!("{} installed!", &_mod));
 
+                                            if !filtered_prj_ids.is_empty() {
                                                 download_dependencies(
                                                     &mut config,
                                                     filtered_prj_ids,
@@ -143,18 +149,21 @@ pub async fn install(
                                         }
                                     }
                                     None => {
-                                        println!("No dependencies for {}", &_mod);
+                                        install_loading
+                                            .end(&format!("No dependencies for {}", &_mod));
                                     }
                                 }
                             }
-                            None => println!("Version not found"),
+                            None => {
+                                install_loading.end(&format!("Version not found for {}", &_mod))
+                            }
                         },
-                        Err(_) => eprintln!("Version not found"),
+                        Err(_) => install_loading.end(&format!("Version not found for {}", &_mod)),
                     }
                 }
             }
 
-            Err(_) => eprintln!("Could not find mod: {}", &_mod),
+            Err(_) => install_loading.end(&format!("Could not find this mod: {}", &_mod)),
         };
     }
 
@@ -176,6 +185,9 @@ async fn download_dependencies(
     if deps_prj_ids.is_empty() {
         return Ok(());
     };
+
+    let deps_loading = CliLoading::new();
+    deps_loading.set(&format!("Downloading dependencies for {}", parent));
 
     for dep_prj_id in deps_prj_ids {
         let res = get_client()?
@@ -221,6 +233,10 @@ async fn download_dependencies(
                 .cloned()
             {
                 Some(dep_version) => {
+                    deps_loading.set(&format!(
+                        "Downloading dependency: {} for {}",
+                        &dependency_project.slug, parent
+                    ));
                     let dep_file = &dep_version.files[0];
                     let dep_data = reqwest::get(&dep_file.url).await?.bytes().await?;
                     let filepath = &(directory.to_owned() + "/" + &dep_file.filename);
@@ -244,6 +260,10 @@ async fn download_dependencies(
 
                     match &dep_version.dependencies {
                         Some(deps) => {
+                            deps_loading.end(&format!(
+                                "Dependency: {} installed!",
+                                &dependency_project.slug
+                            ));
                             if !deps.is_empty() {
                                 download_dependencies(
                                     config,
@@ -254,18 +274,22 @@ async fn download_dependencies(
                                     directory,
                                     mc_loader,
                                     mc_version,
-                                    &dependency_project.slug.clone(),
+                                    &dependency_project.slug,
                                 )
                                 .await?;
                             }
                         }
                         None => {
-                            eprintln!("No dependencies for {}", &dep_version.name);
+                            deps_loading
+                                .end(&format!("No dependencies for {}", &dependency_project.slug));
                         }
                     }
                 }
                 None => {
-                    eprintln!("No Compatible versions found for dependency");
+                    deps_loading.end(&format!(
+                        "Incompatible dependency for {}",
+                        &dependency_project.slug
+                    ));
                 }
             }
         }

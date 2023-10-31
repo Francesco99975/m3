@@ -1,6 +1,10 @@
 use tabled::Tabled;
 
-use crate::{cli_error::CliError, client::get_client, constants::API_URL, search_json::Search};
+use crate::{
+    api::{Search, API_URL},
+    cli_error::CliError,
+    client::get_client,
+};
 
 #[derive(Tabled)]
 pub struct SearchDisplay {
