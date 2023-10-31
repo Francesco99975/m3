@@ -50,6 +50,7 @@ pub async fn update_mods(directory: &str) -> Result<String, Box<dyn std::error::
                                         mc_version: _mod.mc_version.clone(),
                                         date_published: version.date_published.clone(),
                                         filepath: filepath.to_string(),
+                                        dependents: _mod.dependents.clone(),
                                     };
                                     _mod = &mut minecraft_mod;
                                 }

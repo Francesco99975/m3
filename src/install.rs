@@ -72,6 +72,7 @@ pub async fn install(
                                     mc_version: mc_version.clone(),
                                     date_published: version.date_published.clone(),
                                     filepath: filepath.to_string(),
+                                    dependents: None,
                                 };
 
                                 config.push(minecraft_mod);
@@ -79,22 +80,65 @@ pub async fn install(
                                 match &version.dependencies {
                                     Some(deps) => {
                                         if !deps.is_empty() {
-                                            println!("Downloading dependencies for {:?}", &_mod);
-
-                                            let deps_prj_ids = deps
+                                            let deps_prj_ids: Vec<&str> = deps
                                                 .iter()
                                                 .filter(|dep| dep.dependency_type == "required")
                                                 .map(|dep| dep.project_id.as_str())
                                                 .collect();
 
-                                            download_dependencies(
-                                                &mut config,
-                                                deps_prj_ids,
-                                                directory,
-                                                &mc_loader,
-                                                &mc_version,
-                                            )
-                                            .await?;
+                                            let tmp = config.clone();
+
+                                            let installed_prj_ids: Vec<&str> = tmp
+                                                .iter()
+                                                .map(|mod_config| mod_config.project_id.as_str())
+                                                .collect();
+
+                                            let filtered_prj_ids: Vec<&str> = deps_prj_ids
+                                                .iter()
+                                                .filter(|prj_id| {
+                                                    let fltr = installed_prj_ids.contains(prj_id);
+                                                    if fltr {
+                                                        match config.iter_mut().find(|mod_config| {
+                                                            mod_config.project_id == **prj_id
+                                                        }) {
+                                                            Some(mod_config) => {
+                                                                match &mut mod_config.dependents {
+                                                                    Some(deps) => {
+                                                                        deps.push(_mod.to_string())
+                                                                    }
+                                                                    None => {
+                                                                        mod_config.dependents =
+                                                                            Some(vec![
+                                                                                _mod.to_string()
+                                                                            ])
+                                                                    }
+                                                                }
+                                                            }
+                                                            None => eprint!("Mod Config not found"),
+                                                        }
+                                                    }
+
+                                                    !fltr
+                                                })
+                                                .copied()
+                                                .collect();
+
+                                            if !filtered_prj_ids.is_empty() {
+                                                println!(
+                                                    "Downloading dependencies for {:?}",
+                                                    &_mod
+                                                );
+
+                                                download_dependencies(
+                                                    &mut config,
+                                                    filtered_prj_ids,
+                                                    directory,
+                                                    &mc_loader,
+                                                    &mc_version,
+                                                    &_mod.to_string(),
+                                                )
+                                                .await?;
+                                            }
                                         }
                                     }
                                     None => {
@@ -126,6 +170,7 @@ async fn download_dependencies(
     directory: &str,
     mc_loader: &String,
     mc_version: &String,
+    parent: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if deps_prj_ids.is_empty() {
         return Ok(());
@@ -184,7 +229,7 @@ async fn download_dependencies(
 
             let minecraft_mod = ModConfig {
                 id: dep_version.id.clone(),
-                project_name: dependency_project.slug,
+                project_name: dependency_project.slug.clone(),
                 project_id: dep_version.project_id.clone(),
                 version_number: dep_version.version_number.clone(),
                 name: dep_version.name.clone(),
@@ -193,6 +238,7 @@ async fn download_dependencies(
                 mc_version: mc_version.clone(),
                 date_published: dep_version.date_published.clone(),
                 filepath: filepath.to_string(),
+                dependents: Some(vec![parent.to_string()]),
             };
 
             config.push(minecraft_mod);
@@ -209,6 +255,7 @@ async fn download_dependencies(
                             directory,
                             mc_loader,
                             mc_version,
+                            &dependency_project.slug.clone(),
                         )
                         .await?
                     }

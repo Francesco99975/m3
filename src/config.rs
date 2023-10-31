@@ -20,6 +20,7 @@ pub struct ModConfig {
     pub loader: String,
     pub date_published: String,
     pub filepath: String,
+    pub dependents: Option<Vec<String>>,
 }
 
 pub fn load_config(directory: &str) -> Result<Vec<ModConfig>, Box<dyn std::error::Error>> {

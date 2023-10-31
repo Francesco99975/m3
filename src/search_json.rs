@@ -24,7 +24,7 @@ pub struct Hit {
     pub server_side: String,
     #[serde(rename = "project_type")]
     pub project_type: String,
-    pub downloads: i64,
+    pub downloads: u32,
     #[serde(rename = "icon_url")]
     pub icon_url: Option<String>,
     pub color: Option<i64>,

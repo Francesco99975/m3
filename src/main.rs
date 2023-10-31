@@ -2,6 +2,7 @@ use clap::{command, Parser, Subcommand};
 use install::install;
 use models::{ModLoader, VersionChannel};
 use search::search;
+use tabled::Table;
 use uninstall::uninstall;
 use update::update_mods;
 
@@ -66,7 +67,11 @@ async fn main() {
     match &args.command {
         Some(Commands::Search { _mod }) => {
             match search((_mod.as_ref()).expect("Could not Search for it").as_str()).await {
-                Ok(result) => println!("{:?}", result),
+                Ok(result) => {
+                    let table = Table::new(result).to_string();
+
+                    print!("{}", table);
+                }
                 Err(err) => eprintln!("Search Error: {:?}", err),
             }
         }

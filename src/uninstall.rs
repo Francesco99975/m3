@@ -23,12 +23,25 @@ pub fn uninstall(
 
     for (index, _mod) in config.iter().enumerate() {
         if mod_list.contains(&_mod.project_name) {
-            match fs::remove_file(&_mod.filepath) {
-                Ok(_) => {
-                    println!("{} Mod Uninstalled", _mod.project_name);
-                    new_config.remove(index);
+            match &_mod.dependents {
+                Some(dependants) => {
+                    if mod_list.iter().all(|x| dependants.contains(x)) {
+                        match fs::remove_file(&_mod.filepath) {
+                            Ok(_) => {
+                                println!("{} Mod Uninstalled", _mod.project_name);
+                                new_config.remove(index);
+                            }
+                            Err(_) => eprintln!("Could not uninstall {} Mod", _mod.project_name),
+                        }
+                    }
                 }
-                Err(_) => eprintln!("Could not uninstall {} Mod", _mod.project_name),
+                None => match fs::remove_file(&_mod.filepath) {
+                    Ok(_) => {
+                        println!("{} Mod Uninstalled", _mod.project_name);
+                        new_config.remove(index);
+                    }
+                    Err(_) => eprintln!("Could not uninstall {} Mod", _mod.project_name),
+                },
             }
         }
     }
