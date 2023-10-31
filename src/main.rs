@@ -44,7 +44,7 @@ enum Commands {
 }
 
 #[derive(Parser, Debug)]
-#[command(author = "Francesco", version = "1.0", about = "Minecraft Mods Package Manager for Modrinth", long_about = None)]
+#[command(author = "Francesco Michele Barranca (kalairendev)", version = "1.0", about = "Minecraft Mods Package Manager for Modrinth", long_about = None)]
 #[command(propagate_version = true)]
 struct M3 {
     #[arg(short = 'm', long = "mc-version", default_value = "1.20.1")]
@@ -65,38 +65,38 @@ async fn main() {
     let args = M3::parse();
 
     match &args.command {
-        Some(Commands::Search { _mod }) => {
-            match search((_mod.as_ref()).expect("Could not Search for it").as_str()).await {
+        Some(Commands::Search { _mod }) => match _mod {
+            Some(_mod) => match search(_mod.as_ref()).await {
                 Ok(result) => {
                     let table = Table::new(result).to_string();
 
                     print!("{}", table);
                 }
                 Err(err) => eprintln!("Search Error: {:?}", err),
-            }
-        }
+            },
+            None => eprintln!("No input for searching..."),
+        },
         Some(Commands::Install { directory, mods }) => {
             let dir = (directory.as_ref())
-                .expect("Directory error on install")
+                .expect("Directory error on install! Could not use default value for some reason")
                 .as_str();
-            let _mods = (mods.as_ref()).expect("List Error");
-
-            match install(
-                dir,
-                _mods,
-                args.loader,
-                args.channel,
-                args.minecraft_version,
-            )
-            .await
-            {
-                Ok(_) => println!("Mods Successfully Installed"),
-                Err(err) => eprintln!("{:?}", err),
+            match mods {
+                Some(mods) => {
+                    match install(dir, mods, args.loader, args.channel, args.minecraft_version)
+                        .await
+                    {
+                        Ok(_) => println!("Mods Successfully Installed"),
+                        Err(err) => eprintln!("{:?}", err),
+                    }
+                }
+                None => eprintln!(
+                    "Please provide some mods to install. Use the exact slug found by searching."
+                ),
             }
         }
         Some(Commands::Update { directory }) => {
             let dir = (directory.as_ref())
-                .expect("Directory error on install")
+                .expect("Directory error on install! Could not use default value for some reason")
                 .as_str();
 
             match update_mods(dir).await {
@@ -106,15 +106,19 @@ async fn main() {
         }
         Some(Commands::Uninstall { directory, mods }) => {
             let dir = (directory.as_ref())
-                .expect("Directory error on uninstall")
+                .expect("Directory error on install! Could not use default value for some reason")
                 .as_str();
-            let _mods = (mods.as_ref()).expect("List Error");
 
-            match uninstall(dir, _mods) {
-                Ok(message) => println!("{}", message),
-                Err(err) => eprintln!("{:?}", err),
+            match mods {
+                Some(mods) => match uninstall(dir, mods) {
+                    Ok(message) => println!("{}", message),
+                    Err(err) => eprintln!("{:?}", err),
+                },
+                None => eprintln!(
+                    "Please provide mods to uninstall. Use the exact slug found by searching."
+                ),
             }
         }
-        None => eprintln!("No Action Specified"),
+        None => eprintln!("No Action Specified. Use -help to use m3 properly"),
     }
 }

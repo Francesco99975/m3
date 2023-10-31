@@ -46,8 +46,8 @@ pub fn uninstall(
         }
     }
 
-    let json = serde_json::to_string_pretty(&new_config).expect("could not convert to JSON");
-    fs::write(config_path, json.as_bytes()).expect("could write JSON");
+    let json = serde_json::to_string_pretty(&new_config)?;
+    fs::write(config_path, json.as_bytes())?;
 
     Ok(format!(
         "{} Mods Uninstalled",

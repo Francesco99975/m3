@@ -26,11 +26,13 @@ pub async fn install(
         Err(_) => {
             match fs::write(config_path.as_str(), "") {
                 Ok(_) => println!("Created config file"),
-                Err(_) => {
-                    fs::create_dir(directory).expect("Could not created mod directory");
-                    fs::write(config_path.as_str(), "").expect("Could not create config file");
-                    println!("Created mod directory and config file")
-                }
+                Err(_) => match fs::create_dir(directory) {
+                    Ok(_) => match fs::write(config_path.as_str(), "") {
+                        Ok(_) => println!("Created mod directory and config file"),
+                        Err(_) => eprintln!("Could not create config file"),
+                    },
+                    Err(_) => eprintln!("Could not created mod directory"),
+                },
             };
             Vec::new()
         }
@@ -56,10 +58,9 @@ pub async fn install(
                                 let file = &version.files[0];
                                 let data = reqwest::get(&file.url).await?.bytes().await?;
 
-                                fs::create_dir_all(Path::new(&(directory.to_owned())))
-                                    .expect("Could not create new mods dir");
+                                fs::create_dir_all(Path::new(&(directory.to_owned())))?;
                                 let filepath = &(directory.to_owned() + "/" + &file.filename);
-                                fs::write(Path::new(filepath), data).expect("Could not write file");
+                                fs::write(Path::new(filepath), data)?;
 
                                 let minecraft_mod = ModConfig {
                                     id: version.id.clone(),
@@ -157,8 +158,8 @@ pub async fn install(
         };
     }
 
-    let json = serde_json::to_string_pretty(&config).expect("could not convert to JSON");
-    fs::write(config_path, json.as_bytes()).expect("could write JSON");
+    let json = serde_json::to_string_pretty(&config)?;
+    fs::write(config_path, json.as_bytes())?;
 
     Ok(())
 }
@@ -177,8 +178,7 @@ async fn download_dependencies(
     };
 
     for dep_prj_id in deps_prj_ids {
-        let res = get_client()
-            .expect("Coult not fetch client")
+        let res = get_client()?
             .get(API_URL.to_string() + "project/" + dep_prj_id)
             .send()
             .await?;
@@ -187,8 +187,7 @@ async fn download_dependencies(
         if dependency_project.loaders.contains(mc_loader)
             && dependency_project.game_versions.contains(mc_version)
         {
-            let mut versions: Vec<ProjectVersion> = get_client()
-                .expect("Coult not fetch client")
+            let mut versions: Vec<ProjectVersion> = get_client()?
                 .get(API_URL.to_string() + "project/" + dep_prj_id + "/version")
                 .send()
                 .await?
@@ -213,55 +212,60 @@ async fn download_dependencies(
                 evaluator_b.cmp(&evaluator_a)
             });
 
-            let dep_version = &versions
+            match &versions
                 .iter()
                 .find(|version| {
                     version.loaders.contains(mc_loader)
                         && version.game_versions.contains(mc_version)
                 })
                 .cloned()
-                .expect("Version not found");
+            {
+                Some(dep_version) => {
+                    let dep_file = &dep_version.files[0];
+                    let dep_data = reqwest::get(&dep_file.url).await?.bytes().await?;
+                    let filepath = &(directory.to_owned() + "/" + &dep_file.filename);
+                    fs::write(Path::new(filepath), dep_data)?;
 
-            let dep_file = &dep_version.files[0];
-            let dep_data = reqwest::get(&dep_file.url).await?.bytes().await?;
-            let filepath = &(directory.to_owned() + "/" + &dep_file.filename);
-            fs::write(Path::new(filepath), dep_data).expect("Could not write dependency file");
+                    let minecraft_mod = ModConfig {
+                        id: dep_version.id.clone(),
+                        project_name: dependency_project.slug.clone(),
+                        project_id: dep_version.project_id.clone(),
+                        version_number: dep_version.version_number.clone(),
+                        name: dep_version.name.clone(),
+                        channel: dep_version.version_type.clone(),
+                        loader: mc_loader.clone(),
+                        mc_version: mc_version.clone(),
+                        date_published: dep_version.date_published.clone(),
+                        filepath: filepath.to_string(),
+                        dependents: Some(vec![parent.to_string()]),
+                    };
 
-            let minecraft_mod = ModConfig {
-                id: dep_version.id.clone(),
-                project_name: dependency_project.slug.clone(),
-                project_id: dep_version.project_id.clone(),
-                version_number: dep_version.version_number.clone(),
-                name: dep_version.name.clone(),
-                channel: dep_version.version_type.clone(),
-                loader: mc_loader.clone(),
-                mc_version: mc_version.clone(),
-                date_published: dep_version.date_published.clone(),
-                filepath: filepath.to_string(),
-                dependents: Some(vec![parent.to_string()]),
-            };
+                    config.push(minecraft_mod);
 
-            config.push(minecraft_mod);
-
-            match &dep_version.dependencies {
-                Some(deps) => {
-                    if !deps.is_empty() {
-                        download_dependencies(
-                            config,
-                            deps.iter()
-                                .filter(|sub_dep| sub_dep.dependency_type == "required")
-                                .map(|sub_dep| sub_dep.project_id.as_str())
-                                .collect(),
-                            directory,
-                            mc_loader,
-                            mc_version,
-                            &dependency_project.slug.clone(),
-                        )
-                        .await?
+                    match &dep_version.dependencies {
+                        Some(deps) => {
+                            if !deps.is_empty() {
+                                download_dependencies(
+                                    config,
+                                    deps.iter()
+                                        .filter(|sub_dep| sub_dep.dependency_type == "required")
+                                        .map(|sub_dep| sub_dep.project_id.as_str())
+                                        .collect(),
+                                    directory,
+                                    mc_loader,
+                                    mc_version,
+                                    &dependency_project.slug.clone(),
+                                )
+                                .await?;
+                            }
+                        }
+                        None => {
+                            eprintln!("No dependencies for {}", &dep_version.name);
+                        }
                     }
                 }
                 None => {
-                    println!("No dependencies for {}", &dep_version.name);
+                    eprintln!("No Compatible versions found for dependency");
                 }
             }
         }

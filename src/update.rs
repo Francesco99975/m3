@@ -36,8 +36,7 @@ pub async fn update_mods(directory: &str) -> Result<String, Box<dyn std::error::
                                     let file = &version.files[0];
                                     let data = reqwest::get(&file.url).await?.bytes().await?;
                                     let filepath = &(directory.to_owned() + "/" + &file.filename);
-                                    fs::write(Path::new(filepath), data)
-                                        .expect("Could not write file");
+                                    fs::write(Path::new(filepath), data)?;
 
                                     let mut minecraft_mod = ModConfig {
                                         id: version.id.clone(),
@@ -67,8 +66,8 @@ pub async fn update_mods(directory: &str) -> Result<String, Box<dyn std::error::
         };
     }
 
-    let json = serde_json::to_string_pretty(&config).expect("could not convert to JSON");
-    fs::write(config_path, json.as_bytes()).expect("could write JSON");
+    let json = serde_json::to_string_pretty(&config)?;
+    fs::write(config_path, json.as_bytes())?;
 
     Ok(String::from("Mods Successfully Updated!"))
 }

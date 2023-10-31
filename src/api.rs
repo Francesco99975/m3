@@ -6,8 +6,7 @@ use crate::{
 };
 
 pub async fn mod_exists(identifier: &str) -> Result<Response, reqwest::Error> {
-    get_client()
-        .expect("Coult not fetch client")
+    get_client()?
         .get(API_URL.to_string() + "project/" + identifier + "/check")
         .send()
         .await
@@ -19,16 +18,14 @@ pub async fn find_version(
     download_channel: &String,
     mc_version: &String,
 ) -> Result<Option<ProjectVersion>, Box<dyn std::error::Error>> {
-    let res = get_client()
-        .expect("Coult not fetch client")
+    let res = get_client()?
         .get(API_URL.to_string() + "project/" + identifier)
         .send()
         .await?;
     let project: Project = res.json().await?;
 
     if project.loaders.contains(mc_loader) && project.game_versions.contains(mc_version) {
-        let versions: Vec<ProjectVersion> = get_client()
-            .expect("Coult not fetch client")
+        let versions: Vec<ProjectVersion> = get_client()?
             .get(API_URL.to_string() + "project/" + identifier + "/version")
             .send()
             .await?
