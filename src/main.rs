@@ -1,5 +1,6 @@
 use clap::{command, Parser, Subcommand};
 use install::install;
+use list::list;
 use models::{ModLoader, VersionChannel};
 use search::search;
 use tabled::Table;
@@ -11,6 +12,7 @@ mod cli_error;
 mod client;
 mod config;
 mod install;
+mod list;
 mod models;
 mod progress;
 mod search;
@@ -19,6 +21,11 @@ mod update;
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    #[command(about = "List installed mods")]
+    List {
+        #[arg(short = 'd', long = "directory", default_value = "mods")]
+        directory: Option<String>,
+    },
     #[command(about = "Search for a mod on Modrinth")]
     Search { _mod: Option<String> },
     #[command(about = "Install Mods")]
@@ -62,6 +69,24 @@ async fn main() {
     let args = M3::parse();
 
     match &args.command {
+        Some(Commands::List { directory }) => {
+            let dir = (directory.as_ref())
+                .expect("Directory error on install! Could not use default value for some reason")
+                .as_str();
+
+            match list(dir) {
+                Ok(res) => {
+                    if !res.is_empty() {
+                        let table = Table::new(res).to_string();
+
+                        print!("{}", table);
+                    } else {
+                        println!("No mods installed");
+                    }
+                }
+                Err(_) => eprintln!("Could not list mods"),
+            };
+        }
         Some(Commands::Search { _mod }) => match _mod {
             Some(_mod) => match search(_mod.as_ref()).await {
                 Ok(result) => {

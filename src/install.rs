@@ -109,7 +109,11 @@ pub async fn install(
                                                             Some(mod_config) => {
                                                                 match &mut mod_config.dependents {
                                                                     Some(deps) => {
-                                                                        deps.push(_mod.to_string())
+                                                                        if !deps.contains(_mod) {
+                                                                            deps.push(
+                                                                                _mod.to_string(),
+                                                                            )
+                                                                        }
                                                                     }
                                                                     None => {
                                                                         mod_config.dependents =
