@@ -48,7 +48,7 @@ enum Commands {
 }
 
 #[derive(Parser, Debug)]
-#[command(author = "Francesco Michele Barranca (kalairendev)", version = "1.0", about = "Minecraft Mods Package Manager for Modrinth", long_about = None)]
+#[command(author = "Francesco Michele Barranca (kalairendev)", version = "1.1", about = "Minecraft Mods Package Manager for Modrinth", long_about = None)]
 #[command(propagate_version = true)]
 struct M3 {
     #[arg(short = 'm', long = "mc-version", default_value = "1.20.1")]

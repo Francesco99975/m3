@@ -87,7 +87,10 @@ pub async fn install(
                                         if !deps.is_empty() {
                                             let deps_prj_ids: Vec<&str> = deps
                                                 .iter()
-                                                .filter(|dep| dep.dependency_type == "required")
+                                                .filter(|dep| {
+                                                    dep.dependency_type == "required"
+                                                        && dep.version_id.is_some()
+                                                })
                                                 .map(|dep| dep.project_id.as_str())
                                                 .collect();
 
@@ -190,10 +193,8 @@ async fn download_dependencies(
         return Ok(());
     };
 
-    let deps_loading = CliLoading::new();
-    deps_loading.set(&format!("Downloading dependencies for {}", parent));
-
     for dep_prj_id in deps_prj_ids {
+        let deps_loading = CliLoading::new();
         let res = get_client()?
             .get(API_URL.to_string() + "project/" + dep_prj_id)
             .send()
@@ -269,12 +270,67 @@ async fn download_dependencies(
                                 &dependency_project.slug
                             ));
                             if !deps.is_empty() {
+                                let recursive_deps: Vec<&str> = deps
+                                    .iter()
+                                    .filter(|sub_dep| {
+                                        sub_dep.dependency_type == "required"
+                                            && sub_dep.version_id.is_some()
+                                    })
+                                    .map(|sub_dep| sub_dep.project_id.as_str())
+                                    .collect();
+                                let tmp = config.clone();
+
+                                let installed_prj_ids: Vec<&str> = tmp
+                                    .iter()
+                                    .map(|mod_config| mod_config.project_id.as_str())
+                                    .collect();
+
+                                let filtered_prj_ids: Vec<&str> = recursive_deps
+                                    .iter()
+                                    .filter(|prj_id| {
+                                        let fltr = installed_prj_ids.contains(prj_id);
+                                        if fltr {
+                                            match config.iter_mut().find(|mod_config| {
+                                                mod_config.project_id == **prj_id
+                                            }) {
+                                                Some(mod_config) => {
+                                                    match &mut mod_config.dependents {
+                                                        Some(deps) => {
+                                                            if !deps
+                                                                .contains(&dependency_project.slug)
+                                                            {
+                                                                deps.push(
+                                                                    dependency_project
+                                                                        .slug
+                                                                        .to_string(),
+                                                                )
+                                                            }
+                                                        }
+                                                        None => {
+                                                            mod_config.dependents =
+                                                                Some(vec![dependency_project
+                                                                    .slug
+                                                                    .to_string()])
+                                                        }
+                                                    }
+                                                }
+                                                None => {
+                                                    deps_loading.set(&format!(
+                                                        "{} not found in config",
+                                                        &dependency_project.slug
+                                                    ));
+                                                }
+                                            }
+                                        }
+
+                                        !fltr
+                                    })
+                                    .copied()
+                                    .collect();
+
                                 download_dependencies(
                                     config,
-                                    deps.iter()
-                                        .filter(|sub_dep| sub_dep.dependency_type == "required")
-                                        .map(|sub_dep| sub_dep.project_id.as_str())
-                                        .collect(),
+                                    filtered_prj_ids,
                                     directory,
                                     mc_loader,
                                     mc_version,

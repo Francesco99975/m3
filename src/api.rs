@@ -36,10 +36,10 @@ pub struct Project {
     pub donation_urls: Option<Vec<DonationUrl>>,
     #[serde(rename = "project_type")]
     pub project_type: String,
-    pub downloads: i64,
+    pub downloads: u32,
     #[serde(rename = "icon_url")]
     pub icon_url: Option<String>,
-    pub color: Option<i64>,
+    pub color: Option<u32>,
     #[serde(rename = "thread_id")]
     pub thread_id: Option<String>,
     #[serde(rename = "monetization_status")]
@@ -54,7 +54,7 @@ pub struct Project {
     pub updated: String,
     pub approved: Option<String>,
     pub queued: Option<String>,
-    pub followers: i64,
+    pub followers: u32,
     pub license: Option<License>,
     pub versions: Vec<String>,
     #[serde(rename = "game_versions")]
@@ -70,8 +70,8 @@ pub struct DonationUrl {}
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct License {
-    pub id: String,
-    pub name: String,
+    pub id: Option<String>,
+    pub name: Option<String>,
     pub url: Option<String>,
 }
 
@@ -80,20 +80,20 @@ pub struct License {
 pub struct Gallery {
     pub url: String,
     pub featured: bool,
-    pub title: String,
-    pub description: String,
+    pub title: Option<String>,
+    pub description: Option<String>,
     pub created: String,
-    pub ordering: i64,
+    pub ordering: Option<i32>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Search {
     pub hits: Vec<Hit>,
-    pub offset: i64,
-    pub limit: i64,
+    pub offset: i32,
+    pub limit: i32,
     #[serde(rename = "total_hits")]
-    pub total_hits: i64,
+    pub total_hits: i32,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -112,7 +112,7 @@ pub struct Hit {
     pub downloads: u32,
     #[serde(rename = "icon_url")]
     pub icon_url: Option<String>,
-    pub color: Option<i64>,
+    pub color: Option<u32>,
     #[serde(rename = "thread_id")]
     pub thread_id: Option<String>,
     #[serde(rename = "monetization_status")]
@@ -123,7 +123,7 @@ pub struct Hit {
     #[serde(rename = "display_categories")]
     pub display_categories: Option<Vec<String>>,
     pub versions: Vec<String>,
-    pub follows: i64,
+    pub follows: u32,
     #[serde(rename = "date_created")]
     pub date_created: String,
     #[serde(rename = "date_modified")]
@@ -161,7 +161,7 @@ pub struct ProjectVersion {
     pub author_id: String,
     #[serde(rename = "date_published")]
     pub date_published: String,
-    pub downloads: i64,
+    pub downloads: u32,
     #[serde(rename = "changelog_url")]
     pub changelog_url: Value,
     pub files: Vec<File>,
@@ -187,7 +187,7 @@ pub struct File {
     pub url: String,
     pub filename: String,
     pub primary: bool,
-    pub size: i64,
+    pub size: u32,
     #[serde(rename = "file_type")]
     pub file_type: Option<String>,
 }
@@ -195,8 +195,8 @@ pub struct File {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Hashes {
-    pub sha512: String,
-    pub sha1: String,
+    pub sha512: Option<String>,
+    pub sha1: Option<String>,
 }
 
 pub async fn mod_exists(identifier: &str) -> Result<Response, reqwest::Error> {

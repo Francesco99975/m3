@@ -12,6 +12,7 @@ pub struct SearchDisplay {
     client_side: String,
     server_side: String,
     project_type: String,
+    latest_supported_versions: String,
     downloads: u32,
 }
 
@@ -21,6 +22,7 @@ impl SearchDisplay {
         client_side: &str,
         server_side: &str,
         project_type: &str,
+        supported_versions: &[String],
         downloads: u32,
     ) -> Self {
         Self {
@@ -28,6 +30,7 @@ impl SearchDisplay {
             client_side: client_side.to_string(),
             server_side: server_side.to_string(),
             project_type: project_type.to_string(),
+            latest_supported_versions: supported_versions.join(","),
             downloads,
         }
     }
@@ -51,11 +54,19 @@ pub async fn search(query: &str) -> Result<Vec<SearchDisplay>, Box<dyn std::erro
             .hits
             .iter()
             .map(|hit| {
+                let vr: Vec<String> = hit
+                    .versions
+                    .iter()
+                    .rev()
+                    .take(3)
+                    .map(|x| x.to_string())
+                    .collect();
                 SearchDisplay::new(
                     &hit.slug,
                     &hit.client_side,
                     &hit.server_side,
                     &hit.project_type,
+                    &vr,
                     hit.downloads,
                 )
             })
