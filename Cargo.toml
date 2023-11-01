@@ -7,7 +7,7 @@ description = "Minecraft Mod Manager - A package manager to install, update and 
 readme = "README.md"
 homepage = "https://github.com/Francesco99975/m3"
 repository = "https://github.com/Francesco99975/m3"
-keywords = ["cli", "search", "package manager", "minecraft", "game", "install", "update", "mods", "modding"]
+keywords = ["cli", "install", "package manager", "minecraft", "mods"]
 categories = ["command-line-utilities"]
 edition = "2021"
 
